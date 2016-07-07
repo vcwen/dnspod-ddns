@@ -1,4 +1,5 @@
-/*eslint no-console: "allow"*/
+#!/usr/bin/env node
+/* eslint no-console: "allow" */
 const program = require('commander')
 const version = require('../package.json').version
 const IpQueryUrl = 'http://members.3322.org/dyndns/getip'

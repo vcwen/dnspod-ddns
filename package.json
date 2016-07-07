@@ -1,5 +1,5 @@
 {
-  "name": "dnspod-ddns",
+  "name": "ddns-dnspod",
   "version": "0.0.1",
   "description": "DDNS for dnspod",
   "main": "index.js",
@@ -25,10 +25,11 @@
   },
   "homepage": "https://github.com/wenwei1202/dnspod-ddns#readme",
   "dependencies": {
+    "async": "^2.0.0-rc.6",
+    "axon": "^2.0.2",
     "commander": "^2.9.0",
     "debug": "^2.2.0",
-    "passport-strategy": "^1.0.0",
-    "wechat-oauth": "^1.1.0",
+    "request": "^2.72.0",
     "winston": "^2.2.0"
   },
   "devDependencies": {

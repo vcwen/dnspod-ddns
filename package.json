@@ -1,0 +1,41 @@
+{
+  "name": "dnspod-ddns",
+  "version": "0.0.1",
+  "description": "DDNS for dnspod",
+  "main": "index.js",
+  "bin": {
+    "ddns": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "istanbul cover _mocha --report lcovonly  -- -R spec",
+    "coveralls": "istanbul cover ./node_modules/mocha/bin/_mocha --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wenwei1202/dnspod-ddns.git"
+  },
+  "keywords": [
+    "dnspod",
+    "ddns"
+  ],
+  "author": "vincent.wen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wenwei1202/dnspod-ddns/issues"
+  },
+  "homepage": "https://github.com/wenwei1202/dnspod-ddns#readme",
+  "dependencies": {
+    "commander": "^2.9.0",
+    "debug": "^2.2.0",
+    "passport-strategy": "^1.0.0",
+    "wechat-oauth": "^1.1.0",
+    "winston": "^2.2.0"
+  },
+  "devDependencies": {
+    "chai": "^3.3.0",
+    "coveralls": "^2.11.9",
+    "istanbul": "^0.4.2",
+    "mocha": "^2.3.3",
+    "mocha-lcov-reporter": "^1.2.0"
+  }
+}

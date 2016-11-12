@@ -1,6 +1,6 @@
 {
   "name": "ddns-dnspod",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "DDNS for dnspod",
   "main": "index.js",
   "bin": {

@@ -77,6 +77,7 @@ program
           table.push({[key]: status[key]})
         }
       })
+      console.log(table.toString())
       process.exit(0)
     })
 

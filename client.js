@@ -47,4 +47,21 @@ client.stop = function() {
   })
 }
 
+client.status = function(callback) {
+  pingDaemon((started) => {
+    if (started) {
+      sock.connect(constants.SOCKET_PORT)
+      sock.send('status', (status) => {
+        ['loginToken', 'pass'].forEach((key) => {
+          delete status[key]
+        })
+        callback(null, status)
+      })
+    } else {
+      console.log('No ddns instance is running.')
+      process.exit()
+    }
+  })
+}
+
 module.exports = client

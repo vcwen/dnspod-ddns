@@ -1,17 +1,41 @@
-const Ddns = require('./ddns')
-const options = JSON.parse(process.argv[2])
-const ddns = new Ddns(options)
 const winston = require('winston')
+const path = require('path')
+const Ddns = require('./ddns')
+const mkdirp = require('mkdirp')
+const options = JSON.parse(process.argv[2])
+const logDir = path.dirname(options.logfile)
+
+mkdirp.sync(logDir)
 const logger = new winston.Logger({
   level: 'info',
   transports: [
     new(winston.transports.Console)(),
     new(winston.transports.File)({
-      filename: '/var/log/ddns/ddns.log',
+      filename: options.logfile,
     }),
   ],
 })
-const taskId = setInterval(function () {
+
+
+const state = {
+  status: 'inactive',
+}
+const ddns = new Ddns(options)
+ddns.on('success', (ip) => {
+  state.publicIp = ip
+  state.status = 'active'
+  process.send(state)
+})
+
+ddns.on('failure', (err) => {
+  state.errMsg = JSON.stringify(err)
+  state.status = 'error'
+  process.send(state)
+})
+
+ddns.refresh()
+
+const taskId = setInterval(function() {
   try {
     ddns.refresh()
   } catch (e) {
@@ -27,10 +51,8 @@ logger.info('DDNS worker started')
 process.on('message', (task) => {
   switch (task) {
     case 'stop':
-      {
-        clearInterval(taskId)
-        logger.info('DDNS worker stopped.')
-        process.exit(0)
-      }
+      clearInterval(taskId)
+      logger.info('DDNS worker stopped.')
+      process.exit(0)
   }
 })

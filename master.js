@@ -5,28 +5,14 @@ const sock = axon.socket('rep')
 const daemonSock = axon.socket('rep')
 const constants = require('./constants')
 const path = require('path')
-const TEN_MINTUES = 10 * 60 * 1000
+const MINUTE = 60 * 1000
 
 let worker = null
 let stopped = false
-let restarts = []
+const RESTART_INTERVAL = [1, 2, 3, 5, 8]
+let restarts = 0
 
-function isRestartTooFrequently() {
-  if (restarts.length < 10) {
-    return false
-  } else {
-    restarts = restarts.filter((millis) => {
-      return millis - Date.now() < TEN_MINTUES
-    })
-    if (restarts.length > 10) {
-      return true
-    } else {
-      false
-    }
-  }
-
-}
-
+const state = Object.assign({status: 'inactive'}, JSON.parse(process.argv[2]))
 
 daemonSock.bind(constants.SOCKET_PORT - 1)
 
@@ -36,10 +22,18 @@ sock.on('message', function (task, reply) {
     case 'stop':
       {
         stopped = true
-        worker.send('stop')
+        if(worker) {
+          worker.send('stop')
+        }
         console.log('DDNS stopped.')
         reply && reply()
         process.exit()
+        break
+      }
+    case 'status':
+      {
+        reply(state)
+        break
       }
   }
 })
@@ -59,14 +53,18 @@ function start() {
   worker.on('exit', (code) => {
     console.log('worker exit')
     worker = null
-    if (isRestartTooFrequently) {
-      console.log('Worker restart too frequently, DDNS will exit immediately, check out if any settings is not correct.')
-      process.exit(1)
-    }
     if (!stopped && code !== 0) {
       console.log('start a new worker process.')
-      start()
+      setTimeout(() => {
+        start()
+      }, RESTART_INTERVAL[restarts % RESTART_INTERVAL.length] * MINUTE)
+
     }
+  })
+
+  worker.on('message', (s) => {
+    Object.assign(state, s)
+
   })
   console.log('DDNS Started.')
 }

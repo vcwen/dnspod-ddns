@@ -48,6 +48,7 @@ program
     }
     client.start(options)
   })
+  .option('-s --domain <domain>', 'Domain *required')
   .option('-s --sub-domain <sub-domain>', 'Sub domain *required')
   .option('-t --login-token <token>', 'Login token *required')
   .option('--email <email>', 'Email')

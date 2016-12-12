@@ -3,17 +3,7 @@ const apiBaseUrl = 'https://dnsapi.cn/'
 const request = require('request')
 const async = require('async')
 const EventEmitter = require('events')
-const winston = require('winston')
-const logger = new winston.Logger({
-  level: 'info',
-  transports: [
-    new(winston.transports.Console)(),
-    new(winston.transports.File)({
-      filename: '/var/log/ddns/ddns.log',
-    }),
-  ],
-})
-
+const logger = require('winston')
 const apiUrl = {}
 apiUrl.domain = {}
 apiUrl.domain.list = apiBaseUrl + 'domain.list'
@@ -26,12 +16,13 @@ const ONE_HOUR = 60 * 60 * 1000
 
 
 class Ddns extends EventEmitter {
-  constructor(options) {
+  constructor(options, publicIp) {
     super()
+    this.publicIp = publicIp
     this.options = {
       format: 'json',
     }
-    this.domainName = options.domain
+    this.domainName = options.domainName
     this.subDomain = options.subDomain
     this.ipQueryUrl = options.queryUrl
     this.recordLine = options.recordLine || '默认'
@@ -41,12 +32,13 @@ class Ddns extends EventEmitter {
       this.options.login_email = options.email
       this.options.login_password = options.pass
     }
+
   }
   refresh() {
     const self = this
     async.waterfall([
       function getPublicIp(cb) {
-        request.get(self.ipQueryUrl, wrapResponse('plain/text', function(err, ip) {
+        request.get(self.ipQueryUrl, wrapResponse('plain/text', function (err, ip) {
           if (err || !isIPAddress(ip.replace('\n', ''))) {
             self.emit('failure', (err || 'Incorrect IP address:' + ip))
             return cb(err || 'Incorrect IP address:' + ip)
@@ -67,7 +59,7 @@ class Ddns extends EventEmitter {
         opt.keyword = self.domainName
         request.post(apiUrl.domain.list, {
           form: opt,
-        }, wrapResponse(function(err, res) {
+        }, wrapResponse(function (err, res) {
           if (err) {
             return cb(err)
           }
@@ -86,12 +78,12 @@ class Ddns extends EventEmitter {
         opt.sub_domain = self.subDomain
         request.post(apiUrl.record.list, {
           form: opt,
-        }, wrapResponse(function(err, res) {
+        }, wrapResponse(function (err, res) {
           if (err) {
             return cb(err)
           }
           const records = res.records
-          const record = records.find(function(record) {
+          const record = records.find(function (record) {
             return record.type === 'A'
           })
           if (!record) {
@@ -115,7 +107,7 @@ class Ddns extends EventEmitter {
           form: opt,
         }, wrapResponse(cb))
       },
-    ], function(err) {
+    ], function (err) {
       if (err) {
         if (err.cancel) {
           debug('Updating cancelled.')
@@ -138,7 +130,7 @@ function wrapResponse(format, callback) {
     callback = format
     format = 'json'
   }
-  return function(err, res, body) {
+  return function (err, res, body) {
     if (err || res.statusCode != 200) {
       err = err || new Error('Error Code:' + res.statusCode + '\n' + body)
       return callback(err)

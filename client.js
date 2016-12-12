@@ -6,62 +6,94 @@ const fork = require('child_process').fork
 const constants = require('./constants')
 const path = require('path')
 
-const client = {}
+
+class Client {
+  constructor() {
+    this.startingMaster = false
+  }
+  start(options) {
+    const self = this
+    pingDaemon((started) => {
+      if (started) {
+        if (self.starting) return
+        self.starting = true
+        sock.connect(constants.SOCKET_PORT)
+        const event = {
+          action: 'start',
+          options: options,
+        }
+        sock.send(event, () => {
+          process.exit()
+        })
+      } else {
+        fork(path.resolve(__dirname, './master'))
+        setTimeout(() => {
+          self.start(options)
+        }, 1000)
+      }
+    })
+  }
+  stop(id) {
+    pingDaemon((started) => {
+      if (started) {
+        sock.connect(constants.SOCKET_PORT)
+        const event = {
+          action: 'stop',
+          id: Number.parseInt(id),
+        }
+        sock.send(event, () => {
+          console.log('client stop')
+        })
+      } else {
+        console.log('No ddns instance is running.')
+        process.exit()
+      }
+    })
+  }
+  status(id, callback) {
+    pingDaemon((started) => {
+      if (started) {
+        sock.connect(constants.SOCKET_PORT)
+        const event = {
+          action: 'status',
+          id: Number.parseInt(id),
+        }
+        sock.send(event, (status) => {
+          ['loginToken', 'pass'].forEach((key) => {
+            Reflect.deleteProperty(status, key)
+          })
+          callback(null, status)
+        })
+      } else {
+        console.log('No ddns instance is running.')
+        process.exit()
+      }
+    })
+  }
+  list(callback) {
+    sock.connect(constants.SOCKET_PORT)
+    const event = {
+      action: 'list',
+    }
+    sock.send(event, (list) => {
+      callback(null, list)
+    })
+  }
+}
+
 
 
 function pingDaemon(cb) {
-  daemonSock.on('connect', function() {
+  daemonSock.on('connect', function () {
     daemonSock.close()
     cb(true)
   })
-  daemonSock.on('reconnect attempt', function() {
-    sock.close()
+  daemonSock.on('reconnect attempt', function () {
+    daemonSock.close()
     cb(false)
   })
-  daemonSock.connect(constants.SOCKET_PORT - 1 )
+  daemonSock.connect(constants.SOCKET_PORT - 1)
 }
 
-client.start = function(options) {
-  pingDaemon((started) => {
-    if (started) {
-      console.log('already started')
-    } else {
-      fork(path.resolve(__dirname, './master'), [JSON.stringify(options)])
-      process.exit(0)
-    }
-  })
-}
 
-client.stop = function() {
-  pingDaemon((started) => {
-    if (started) {
-      sock.connect(constants.SOCKET_PORT)
-      sock.send('stop', () => {
-        console.log('client stop')
-        process.exit()
-      })
-    } else {
-      console.log('No ddns instance is running.')
-      process.exit()
-    }
-  })
-}
-
-client.status = function(callback) {
-  pingDaemon((started) => {
-    if (started) {
-      sock.connect(constants.SOCKET_PORT)
-      sock.send('status', (status) => {
-        ['loginToken', 'pass'].forEach((key) => {
-          delete status[key]
-        })
-        callback(null, status)
-      })
-    } else {
-      console.log('No ddns instance is running.')
-      process.exit()
-    }
-  })
-}
-
-module.exports = client
+module.exports = new Client()

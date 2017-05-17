@@ -5,6 +5,8 @@ const mkdirp = require('mkdirp')
 const options = JSON.parse(process.argv[2])
 const logDir = path.dirname(options.logfile)
 
+const state = Object.assign({status: 'inactive'}, JSON.parse(process.argv[2]))
+
 mkdirp.sync(logDir)
 const logger = new winston.Logger({
   level: 'info',
@@ -16,15 +18,15 @@ const logger = new winston.Logger({
   ],
 })
 
-
-const state = {
-  status: 'inactive',
-}
 const ddns = new Ddns(options)
 ddns.on('success', (ip) => {
   state.publicIp = ip
   state.status = 'active'
-  process.send(state)
+  const event = {
+    action: 'state',
+    state,
+  }
+  process.send(event)
 })
 
 ddns.on('failure', (err) => {
@@ -34,7 +36,6 @@ ddns.on('failure', (err) => {
 })
 
 ddns.refresh()
-
 const taskId = setInterval(function() {
   try {
     ddns.refresh()

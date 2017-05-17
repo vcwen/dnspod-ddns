@@ -4,6 +4,7 @@ const request = require('request')
 const async = require('async')
 const EventEmitter = require('events')
 const winston = require('winston')
+const url = require('url')
 const logger = new winston.Logger({
   level: 'info',
   transports: [
@@ -14,13 +15,16 @@ const logger = new winston.Logger({
   ],
 })
 
-const apiUrl = {}
-apiUrl.domain = {}
-apiUrl.domain.list = apiBaseUrl + 'domain.list'
-apiUrl.record = {}
-apiUrl.record.list = apiBaseUrl + 'record.list'
-apiUrl.record.modify = apiBaseUrl + 'record.modify'
-apiUrl.record.ddns = apiBaseUrl + 'record.ddns'
+const apiUrl = {
+  domain: {
+    list: url.resolve(apiBaseUrl, 'domain.list'),
+  },
+  record: {
+    list: url.resolve(apiBaseUrl, 'record.list'),
+    modify: url.resolve(apiBaseUrl, 'record.modify'),
+    ddns: url.resolve(apiBaseUrl, 'record.ddns'),
+  },
+}
 
 const ONE_HOUR = 60 * 60 * 1000
 
@@ -47,7 +51,8 @@ class Ddns extends EventEmitter {
     async.waterfall([
       function getPublicIp(cb) {
         request.get(self.ipQueryUrl, wrapResponse('plain/text', function(err, ip) {
-          if (err || !isIPAddress(ip.replace('\n', ''))) {
+          ip = typeof ip === 'string' ? ip.trim() : ''
+          if (err || !isIPAddress(ip)) {
             self.emit('failure', (err || 'Incorrect IP address:' + ip))
             return cb(err || 'Incorrect IP address:' + ip)
           }
@@ -144,7 +149,7 @@ function wrapResponse(format, callback) {
       return callback(err)
     }
     if (format === 'json') {
-      var json
+      let json
       try {
         json = JSON.parse(body)
       } catch (e) {

@@ -21,23 +21,25 @@ function pingDaemon(cb) {
   daemonSock.connect(constants.SOCKET_PORT - 1 )
 }
 
-client.start = function(options) {
+client.start = function (options) {
   pingDaemon((started) => {
-    if (started) {
-      console.log('already started')
-    } else {
-      fork(path.resolve(__dirname, './master'), [JSON.stringify(options)])
-      process.exit(0)
+    if(!started) {
+      fork(path.resolve(__dirname, './master'))
     }
+    sock.connect(constants.SOCKET_PORT)
+    sock.send({ action: 'start', options: JSON.stringify(options)}, () => {
+      console.log('DDNS client stopped.')
+      process.exit()
+    })
   })
 }
 
-client.stop = function() {
+client.stop = function(id) {
   pingDaemon((started) => {
     if (started) {
       sock.connect(constants.SOCKET_PORT)
-      sock.send('stop', () => {
-        console.log('client stop')
+      sock.send({action: 'stop', id}, id, () => {
+        console.log('DDNS client stopped.')
         process.exit()
       })
     } else {
@@ -47,13 +49,13 @@ client.stop = function() {
   })
 }
 
-client.status = function(callback) {
+client.status = function(id, callback) {
   pingDaemon((started) => {
     if (started) {
       sock.connect(constants.SOCKET_PORT)
-      sock.send('status', (status) => {
+      sock.send({action: 'status', id}, (status) => {
         ['loginToken', 'pass'].forEach((key) => {
-          delete status[key]
+          Reflect.deleteProperty(status, key)
         })
         callback(null, status)
       })

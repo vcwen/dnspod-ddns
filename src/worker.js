@@ -32,7 +32,11 @@ ddns.on('success', (ip) => {
 ddns.on('failure', (err) => {
   state.errMsg = JSON.stringify(err)
   state.status = 'error'
-  process.send(state)
+  const event = {
+    action: 'state',
+    state,
+  }
+  process.send(event)
 })
 
 ddns.refresh()

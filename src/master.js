@@ -16,14 +16,13 @@ let idCounter = 0
 
 
 daemonSock.bind(constants.SOCKET_PORT - 1)
-
 sock.bind(constants.SOCKET_PORT)
 sock.on('message', function (event, reply) {
-
   switch (event.action) {
     case 'start': {
       idCounter += 1
       start(idCounter, event.options)
+      reply()
       break
     }
     case 'stop':
@@ -34,9 +33,11 @@ sock.on('message', function (event, reply) {
         reply()
         break
       }
-    case 'status':
+    case 'list':
       {
-        reply(taskPool.get(event.id).state)
+        const arr = []
+        taskPool.forEach((v, k) => arr.push(Object.assign({id: k},v.state)))
+        reply(arr)
         break
       }
   }

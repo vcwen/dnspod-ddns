@@ -13,6 +13,17 @@ program
 program
   .command('start')
   .description('start DDNS')
+  .option('--name <name>', 'Name')
+  .option('-d --domain <domain>', 'Domain *required')
+  .option('-s --sub-domain <sub-domain>', 'Sub domain *required')
+  .option('-t --login-token <token>', 'Login token, format:<Id,Token> *required')
+  .option('--email <email>', 'Email')
+  .option('--pass <pass>', 'Password')
+  .option('--if --interface <interface>', 'Interface to get the public IP address')
+  .option('-i --interval <interval>', 'Target IP address')
+  .option('--query-url <url>', 'URL to query the public IP address')
+  .option('-c --conf <filepath>', 'Config file(json format)')
+  .option('-l --logfile <logfile>', 'Logfile path')
   .action(function(options) {
     const opts = {}
     if (options.conf) {
@@ -45,35 +56,29 @@ program
     }
     client.start(opts)
   })
-  .option('--name <name>', 'Name')
-  .option('-d --domain <domain>', 'Domain *required')
-  .option('-s --sub-domain <sub-domain>', 'Sub domain *required')
-  .option('-t --login-token <token>', 'Login token, format:<Id,Token> *required')
-  .option('--email <email>', 'Email')
-  .option('--pass <pass>', 'Password')
-  .option('--if --interface <interface>', 'Interface to get the public IP address')
-  .option('-i --interval <interval>', 'Target IP address')
-  .option('--query-url <url>', 'URL to query the public IP address')
-  .option('-c --conf <filepath>', 'Config file(json format)')
-  .option('-l --logfile <logfile>', 'Logfile path')
 
 program
   .command('stop <id>')
   .description('Stop DDNS with id')
   .action(function(id) {
-    client.stop(id)
+    client.stop(Number.parseInt(id))
   })
 
 program
-  .command('status <id>')
+  .command('ls')
   .description('status of ddns')
-  .action((id) => {
-    const table = new Table()
-    client.status(id, (err, status) => {
-      Object.keys(status).forEach((key) => {
-        if(key) {
-          table.push({[key]: status[key]})
-        }
+  .action(() => {
+    const table = new Table({ head: ['Id', 'status', 'Sub domain', 'Domain', 'IP', 'Query URL', 'Log file', 'Interval']})
+    client.list((err, stateList) => {
+      if(err) {
+        return console.error(err)
+      }
+      stateList.forEach((state) => {
+        const row = []
+        ;['id', 'status', 'subDomain', 'domain', 'publicIp', 'queryUrl', 'logfile', 'interval'].forEach((key) => {
+          row.push(state[key])
+        })
+        table.push(row)
       })
       console.log(table.toString())
       process.exit(0)

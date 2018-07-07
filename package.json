@@ -1,5 +1,5 @@
 {
-  "name": "ddns-dnspod",
+  "name": "ddnsman",
   "version": "0.0.4",
   "description": "DDNS for dnspod",
   "main": "index.js",
@@ -7,8 +7,35 @@
     "ddns": "./bin/cli.js"
   },
   "scripts": {
-    "test": "istanbul cover _mocha --report lcovonly  -- -R spec",
-    "coveralls": "istanbul cover ./node_modules/mocha/bin/_mocha --report lcovonly -- -R spec && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage"
+    "test": "jest",
+    "coveralls": "jest && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "<rootDir>/node_modules/ts-jest/preprocessor.js"
+    },
+    "testRegex": "test/.*\\.(test|spec)\\.(jsx?|tsx?)$",
+    "testEnvironment": "node",
+    "collectCoverage": true,
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/test/"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 50,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ]
   },
   "repository": {
     "type": "git",
@@ -30,7 +57,7 @@
     "axon": "^2.0.3",
     "cli-table": "^0.3.1",
     "commander": "^2.16.0",
-    "debug": "^2.2.0",
+    "debug": "^3.1.0",
     "form-data": "^2.3.2",
     "make-dir": "^1.3.0",
     "mkdirp": "^0.5.1",
@@ -43,7 +70,10 @@
     "chai": "^3.3.0",
     "coveralls": "^2.11.9",
     "istanbul": "^0.4.2",
+    "jest": "^23.2.0",
     "mocha": "^2.3.3",
-    "mocha-lcov-reporter": "^1.2.0"
+    "mocha-lcov-reporter": "^1.2.0",
+    "ts-jest": "^23.0.0",
+    "typescript": "^2.9.2"
   }
 }

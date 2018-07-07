@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-import Table from 'cli-table'
 import program from 'commander'
-import path from 'path'
-import { client } from '../client'
+import Debug from 'debug'
+import { CommandExec } from '../CommandExec'
 program.version('0.0.5')
+const debug = Debug('cli')
+const exec = new CommandExec()
 
 program
   .command('start')
@@ -16,66 +17,23 @@ program
   .option('--if --interface <interface>', 'Interface to get the public IP address')
   .option('-c --conf <filepath>', 'Config file(json format)')
   .action((options) => {
-    const opts = {} as any
-    if (options.conf) {
-      const filepath = path.resolve(process.cwd(), options.conf)
-      Object.assign(opts, require(filepath))
-      opts.conf = filepath
-    } else {
-      if (options.loginToken) {
-        opts.loginToken = options.loginToken
-      } else {
-        // tslint:disable-next-line:no-console
-        return console.log('Login Token is required.')
-      }
-    }
-    opts.name = options.name || [options.subdomain, options.domainName].join('.')
-    opts.domain = options.domainName
-    opts.subdomain = options.subdomain
-    if (!opts.domain || !opts.subdomain) {
-      // tslint:disable-next-line:no-console
-      return console.error('Domain and sub domain are required.')
-    }
-    client.start(opts)
+    debug('start with %o', options)
+    exec.start(options)
   })
 
 program
-  .command('stop <id>|all')
+  .command('stop <name>|all')
   .description('Stop DDNS with id')
-  .action((id) => {
-    const regex = /\d+/
-    if (!id) {
-      // tslint:disable-next-line:no-console
-      return console.log('Id is required.')
-    }
-    if (id.toLowerCase() === 'all') {
-      client.stop(id.toLowerCase())
-    } else if (regex.test(id)) {
-      client.stop(Number.parseInt(id))
-    } else {
-      // tslint:disable-next-line:no-console
-      return console.log(`Id:${id} is invalid.`)
-    }
+  .action((name) => {
+    debug('stop ' + name)
+    exec.stop(name)
   })
 
 program
   .command('ls')
   .description('status of ddns')
   .action(() => {
-    const table = new Table({
-      head: ['Name', 'Status', 'Subdomain', 'Domain', 'IP']
-    })
-    client.list((err, domains) => {
-      if (err) {
-        // tslint:disable-next-line:no-console
-        return console.error(err)
-      }
-      domains.forEach((item) => {
-        table.push(item)
-      })
-      // tslint:disable-next-line:no-console
-      console.log(table.toString())
-      process.exit(0)
-    })
+    debug('list')
+    exec.list()
   })
 program.parse(process.argv)

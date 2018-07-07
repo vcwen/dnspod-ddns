@@ -7,7 +7,7 @@ export class Task {
   public loginToken: string
   public status: string = 'inactive'
   public ip: string
-  public worker: ChildProcess
+  public worker?: ChildProcess
   constructor(name: string, domain: string, subdomain: string, loginToken: string, worker: ChildProcess) {
     this.name = name
     this.domain = domain
@@ -20,6 +20,9 @@ export class Task {
           this.status = msg.status
           if (msg.status === 'sync') {
             this.ip = msg.ip
+          } else if (msg.status === 'error') {
+            worker.kill()
+            this.worker = undefined
           }
           break
         default:

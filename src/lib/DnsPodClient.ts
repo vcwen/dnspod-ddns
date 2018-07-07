@@ -1,11 +1,13 @@
 import axios from 'axios'
+import Debug from 'debug'
 import net from 'net'
 import qs from 'querystring'
 import { ApiUrl } from '../constants'
-
+import { DnsClient } from './DnsClient'
+const debug = Debug('ddnsman:DnsPodClient')
 const validateResponse = (res) => {
   if (res.status.code !== '1') {
-    throw new Error(res)
+    throw Object.assign(new Error(), res.status)
   }
 }
 
@@ -15,7 +17,7 @@ const isIPAddress = (str: string) => {
   return regex.test(str)
 }
 
-export class DnsPodClient {
+export class DnsPodClient extends DnsClient {
   public static getPublicIP(): Promise<string> {
     return new Promise((resolve, reject) => {
       const client = net
@@ -40,18 +42,8 @@ export class DnsPodClient {
   private loginToken: string
   private record: { id: string; name: string; value: string }
   constructor(loginToken: string) {
+    super()
     this.loginToken = loginToken
-  }
-
-  public async getDomain(domainName: string) {
-    const opt = { domain: domainName }
-    const res = await this._request(ApiUrl.domain.info, opt)
-    const domain = res.domain
-    if (domain) {
-      return domain
-    } else {
-      throw new Error('Can not find domain name:' + domainName)
-    }
   }
   public async getRecordByName(domain: string, subdomain: string) {
     // debug('getRecordId:' + domainId)
@@ -77,7 +69,8 @@ export class DnsPodClient {
     const res = await this._request(ApiUrl.record.ddns, opt)
     return res.record as { id: string; value: string; name: string }
   }
-  public async syncDdns(domain: string, subdomain: string, publicIp: string) {
+  public async sync(domain: string, subdomain: string, publicIp: string) {
+    debug('sync %s with %s', [subdomain, domain].join('.'), publicIp)
     if (!this.record) {
       this.record = await this.getRecordByName(domain, subdomain)
     }
@@ -90,17 +83,20 @@ export class DnsPodClient {
     return this.record
   }
   private async _request(uri: string, options: any) {
-    const res = await axios.post(
-      uri,
-      qs.stringify(Object.assign({ login_token: this.loginToken, format: 'json' }, options)),
-      {
+    const data = qs.stringify(Object.assign({ login_token: this.loginToken, format: 'json' }, options))
+    try {
+      const res = await axios.post(uri, data, {
         headers: {
           'content-type': 'application/x-www-form-urlencoded',
           'User-Agent': 'DDNS Client/1.0.0 (wenwei1202@gmail.com)'
         }
-      }
-    )
-    validateResponse(res.data)
-    return res.data
+      })
+
+      validateResponse(res.data)
+      return res.data
+    } catch (err) {
+      debug('Request %s failed with data:[%s], reason: %o', uri, data, err)
+      throw err
+    }
   }
 }

@@ -1,5 +1,7 @@
+import Debug from 'debug'
 import { EventEmitter } from 'events'
 import { DnsPodClient } from './DnsPodClient'
+const debug = Debug('IpMonitor')
 
 export class IpMonitor extends EventEmitter {
   private timer: NodeJS.Timer
@@ -8,16 +10,27 @@ export class IpMonitor extends EventEmitter {
     if (this.ip) {
       return this.ip
     } else {
-      const ip = await DnsPodClient.getPublicIP()
-      this.ip = ip
-      return ip
+      try {
+        const ip = await DnsPodClient.getPublicIP()
+        this.ip = ip
+        return ip
+      } catch (err) {
+        // tslint:disable-next-line:no-console
+        console.error(err)
+      }
     }
   }
   public async checkIp() {
-    const ip = await DnsPodClient.getPublicIP()
-    if (this.ip !== ip) {
-      this.ip = ip
-      this.emit('change', ip)
+    try {
+      const ip = await DnsPodClient.getPublicIP()
+      if (this.ip !== ip) {
+        this.ip = ip
+        this.emit('change', ip)
+      }
+    } catch (err) {
+      debug('Failed to get external IP: %o' + err)
+      // tslint:disable-next-line:no-console
+      console.error(err)
     }
   }
   public start(interval: number) {
@@ -26,6 +39,8 @@ export class IpMonitor extends EventEmitter {
     }, interval)
   }
   public stop() {
-    clearInterval(this.timer)
+    if (this.timer) {
+      clearInterval(this.timer)
+    }
   }
 }

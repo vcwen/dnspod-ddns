@@ -3,7 +3,7 @@ import Debug from 'debug'
 import net from 'net'
 import qs from 'querystring'
 import { ApiUrl } from '../constants'
-import { DnsClient } from './DnsClient'
+import { DnsClient, IRecord } from './DnsClient'
 const debug = Debug('ddnsman:DnsPodClient')
 const validateResponse = (res) => {
   if (res.status.code !== '1') {
@@ -40,7 +40,7 @@ export class DnsPodClient extends DnsClient {
     })
   }
   private loginToken: string
-  private record: { id: string; name: string; value: string }
+  private record?: IRecord
   constructor(loginToken: string) {
     super()
     this.loginToken = loginToken
@@ -52,10 +52,17 @@ export class DnsPodClient extends DnsClient {
     const records = res.records
     const record = records.find((item) => item.type === 'A' && item.name === subdomain)
     if (record) {
-      return record
-    } else {
-      throw new Error('No record found for sub domain:' + subdomain)
+      return record as IRecord
     }
+  }
+  public async createRecord(subdomain: string, domain: string, type: string = 'A') {
+    const opt = {
+      sub_domain: subdomain,
+      domain,
+      record_type: type
+    }
+    const res = await this._request(ApiUrl.record.ddns, opt)
+    return res.record as IRecord
   }
 
   public async updateDdns(publicIp: string, subdomain, domain, recordId, recordLine = '默认') {
@@ -67,7 +74,7 @@ export class DnsPodClient extends DnsClient {
       record_line: recordLine
     }
     const res = await this._request(ApiUrl.record.ddns, opt)
-    return res.record as { id: string; value: string; name: string }
+    return res.record as IRecord
   }
   public async sync(domain: string, subdomain: string, publicIp: string) {
     debug('sync %s with %s', [subdomain, domain].join('.'), publicIp)
@@ -78,6 +85,9 @@ export class DnsPodClient extends DnsClient {
       if (this.record.value !== publicIp) {
         return await this.updateDdns(publicIp, subdomain, domain, this.record.id)
       }
+    } else {
+      this.record = await this.createRecord(subdomain, domain)
+      return await this.updateDdns(publicIp, subdomain, domain, this.record.id)
     }
 
     return this.record

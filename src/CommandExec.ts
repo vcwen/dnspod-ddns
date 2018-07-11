@@ -79,18 +79,15 @@ export class CommandExec {
   private async _ping(timeout: number = 1000): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       this.sock.send({ action: 'PING' }, () => {
-        console.log('ok>>>>>')
         resolve(true)
       })
       setTimeout(() => {
-        console.log('timeout>>>>')
         resolve(false)
       }, timeout)
     })
   }
   private async _sendMessage(msg: any): Promise<any> {
     return new Promise((resolve, reject) => {
-      console.log('send>>>>>')
       this.sock.send(msg, (err, ...res: any[]) => {
         if (err) {
           reject(err)

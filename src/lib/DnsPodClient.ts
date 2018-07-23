@@ -1,6 +1,6 @@
 import axios from 'axios'
 import Debug from 'debug'
-import net from 'net'
+
 import qs from 'querystring'
 import { ApiUrl } from '../constants'
 import { DnsClient, IRecord } from './DnsClient'
@@ -10,84 +10,76 @@ const validateResponse = (res) => {
     throw Object.assign(new Error(), res.status)
   }
 }
-
-const isIPAddress = (str: string) => {
-  str = str ? str.trim() : ''
-  const regex = /^(\d+\.){3}\d+$/
-  return regex.test(str)
-}
-
 export class DnsPodClient extends DnsClient {
-  public static getPublicIP(): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const client = net
-        .connect({
-          host: 'ns1.dnspod.net',
-          port: 6666
-        })
-        .on('data', (data) => {
-          client.end()
-          const ip = data.toString()
-          if (isIPAddress(ip)) {
-            resolve(ip)
-          } else {
-            reject(ip)
-          }
-        })
-        .on('err', (err) => {
-          reject(err)
-        })
-    })
-  }
   private loginToken: string
   private record?: IRecord
-  constructor(loginToken: string) {
-    super()
+  constructor(name: string, subdomain: string, domain: string, loginToken: string) {
+    super(name, subdomain, domain)
     this.loginToken = loginToken
   }
-  public async getRecordByName(domain: string, subdomain: string) {
-    // debug('getRecordId:' + domainId)
-    const opt = { domain, sub_domain: subdomain }
-    const res = await this._request(ApiUrl.record.list, opt)
-    const records = res.records
-    const record = records.find((item) => item.type === 'A' && item.name === subdomain)
-    if (record) {
-      return record as IRecord
-    }
+  public get ip() {
+    return this.record ? this.record.value: undefined
   }
-  public async createRecord(subdomain: string, domain: string, type: string = 'A') {
-    const opt = {
-      sub_domain: subdomain,
-      domain,
-      record_type: type
+  public async getRecord() {
+    debug('getRecord:' + this.domain)
+    const opt = { domain: this.domain, sub_domain: this.subdomain }
+    try {
+      const res = await this._request(ApiUrl.record.list, opt)
+      const records = res.records
+      const record = records.find((item) => item.type === 'A' && item.name === this.subdomain)
+      if (record) {
+        return record as IRecord
+      }
+    } catch (err) {
+      if(err.code === '10') {
+        return
+      } else {
+        throw err
+      }
     }
-    const res = await this._request(ApiUrl.record.ddns, opt)
+
+  }
+  public async createRecord(ip: string) {
+    const opt = {
+      sub_domain: this.subdomain,
+      domain: this.domain,
+      ttl: 600,
+      record_type: 'A',
+      record_line: '默认',
+      value: ip
+    }
+    const res = await this._request(ApiUrl.record.create, opt)
     return res.record as IRecord
   }
 
-  public async updateDdns(publicIp: string, subdomain, domain, recordId, recordLine = '默认') {
+  public async updateDdns(publicIp: string, recordId: string, recordLine: string = '默认') {
     const opt = {
-      domain,
+      domain: this.domain,
       record_id: recordId,
       value: publicIp,
-      sub_domain: subdomain,
+      sub_domain: this.subdomain,
       record_line: recordLine
     }
     const res = await this._request(ApiUrl.record.ddns, opt)
+    this.status = 'sync'
     return res.record as IRecord
   }
-  public async sync(domain: string, subdomain: string, publicIp: string) {
-    debug('sync %s with %s', [subdomain, domain].join('.'), publicIp)
+  public async sync( ip: string) {
+    const subdomain = this.subdomain
+    const domain = this.domain
+    debug('sync %s with %s', [subdomain, domain].join('.'), ip)
     if (!this.record) {
-      this.record = await this.getRecordByName(domain, subdomain)
+      this.record = await this.getRecord()
     }
     if (this.record) {
-      if (this.record.value !== publicIp) {
-        return await this.updateDdns(publicIp, subdomain, domain, this.record.id)
+      if (this.record.value !== ip) {
+        this.record = await this.updateDdns(ip, this.record.id)
+      } else {
+        this.status = 'sync'
       }
     } else {
-      this.record = await this.createRecord(subdomain, domain)
-      return await this.updateDdns(publicIp, subdomain, domain, this.record.id)
+      this.record = await this.createRecord(ip)
+      this.record = await this.updateDdns(ip, this.record.id)
     }
 
     return this.record

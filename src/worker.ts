@@ -1,59 +1,86 @@
-import Debug from 'debug'
+/* tslint:disable no-console */
+import axon from 'axon'
+import { SOCKET_PORT } from './constants'
 import { DnsClient } from './lib/DnsClient'
 import { DnsPodClient } from './lib/DnsPodClient'
-import { logger } from './lib/Logger'
-const debug = Debug('ddnsman:Worker')
-logger.info('DDNS worker started')
+import { IpMonitor } from './lib/IpMonitor'
+process.on('uncaughtException', (err) => {
+  console.error(err)
+})
+
+process.on('unhandledRejection', (err) => {
+  console.error(err)
+})
 
 class Worker {
-  private domain: string
-  private subdomain: string
-  private dnsClient: DnsClient
-  constructor(domain: string, subdomain: string, accessToken: string) {
-    this.domain = domain
-    this.subdomain = subdomain
-    this.dnsClient = new DnsPodClient(accessToken)
+  private sock: any
+  private dnsClientStore: Map<string, DnsClient> = new Map()
+  private ipMonitor: IpMonitor
+  constructor() {
+    this.ipMonitor = new IpMonitor()
+    this.sock = axon.socket('rep', {})
+    this.sock.on('message', async (msg, reply) => {
+      switch (msg.action) {
+        case 'PING': {
+          reply()
+          break
+        }
+        case 'start': {
+          const client = new DnsPodClient(msg.name, msg.subdomain, msg.domain, msg.loginToken)
+          if(this.dnsClientStore.has(msg.name)) {
+            console.error('exists.')
+          } else {
+            this.dnsClientStore.set(msg.name, client)
+            const ip = await this.ipMonitor.getIp()
+            if(ip) {
+              client.sync(ip)
+            }
+          }
+          reply()
+          break
+        }
+        case 'stop': {
+          if (msg.name === 'all') {
+            this.dnsClientStore.clear()
+          } else {
+            if(this.dnsClientStore.has(msg.name)) {
+              this.dnsClientStore.delete(msg.name)
+            } else {
+              console.error('not exists.')
+            }
+          }
+          reply()
+          break
+        }
+        case 'list': {
+          const domains = [] as any
+          for( const item of this.dnsClientStore.values()) {
+            domains.push([item.name, item.status, item.subdomain, item.domain, item.ip || ''])
+          }
+          reply(null, domains)
+          break
+        }
+      }
+    })
+    this.ipMonitor.on('change', (ip) => {
+      this._sync(ip)
+    })
   }
-  public async syncDdns(ip: string) {
-    let status: string = ''
-    try {
-      await this.dnsClient.sync(this.domain, this.subdomain, ip)
-      status = 'sync'
-    } catch (err) {
-      // tslint:disable-next-line:no-console
-      console.error(err)
-      status = 'error'
-    } finally {
-      const event = {
-        action: 'STATUS',
-        status,
-        ip
+  public start() {
+    this.ipMonitor.start(10000)
+    this.sock.bind(SOCKET_PORT)
+  }
+  private async _sync(ip: string) {
+    for(const item of this.dnsClientStore.values()) {
+      try {
+        await item.sync(ip)
+      } catch (err) {
+        console.error(err)
       }
-      if (process.send) {
-        process.send(event)
-      }
+
     }
   }
 }
 
-process.on('message', async (msg: any) => {
-  debug('receive msg: %o', msg)
-  let worker: Worker | undefined
-  switch (msg.action) {
-    case 'INIT':
-      worker = new Worker(msg.domain, msg.subdomain, msg.loginToken)
-      if (msg.ip) {
-        worker.syncDdns(msg.ip)
-      }
-      break
-    case 'SYNC_DDNS':
-      if (worker) {
-        await worker.syncDdns(msg.ip)
-      }
-      break
-    case 'STOP':
-      logger.info(`DDNS worker[${process.pid}] exits.`)
-      process.exit(0)
-      break
-  }
-})
+const worker = new Worker()
+worker.start()

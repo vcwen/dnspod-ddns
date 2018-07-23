@@ -18,7 +18,7 @@ program
   .option('-c --conf <filepath>', 'Config file(json format)')
   .action((options) => {
     debug('start with %o', options)
-    exec.start(options)
+    exec.start(options.subdomain, options.domainName, options.loginToken, options.name)
   })
 
 program

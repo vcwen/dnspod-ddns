@@ -5,5 +5,15 @@ export interface IRecord {
 }
 
 export abstract class DnsClient {
-  public abstract async sync(domain: string, subdomain: string, publicip: string): Promise<IRecord>
+  public name: string
+  public domain: string
+  public subdomain: string
+  public status: string = 'inactive'
+  constructor(name: string, subdomain: string, domain: string) {
+    this.name = name
+    this.subdomain = subdomain
+    this.domain = domain
+  }
+  public abstract get ip (): string | undefined
+  public abstract async sync(publicIp: string): Promise<IRecord>
 }

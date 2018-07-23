@@ -10,24 +10,23 @@ export class CommandExec {
     this.sock = axon.socket('req', {})
     this.sock.connect(SOCKET_PORT)
   }
-  public async start({ name, subdomain, domainName, loginToken }) {
-    this._run(async () => {
+  public async start(subdomain: string, domain: string, loginToken: string, name?: string) {
+    return this._run(async () => {
       if (!loginToken) {
-        console.log('Loin Token is required.')
+        return console.error('Loin Token is required.')
       }
-      if (!domainName || !subdomain) {
-        console.error('Domain and sub domain are required.')
+      if (!domain || !subdomain) {
+        return console.error('Domain and sub domain are required.')
       }
       const started = await this._ping()
       if (!started) {
-        fork(path.resolve(__dirname, './master'))
+        fork(path.resolve(__dirname, './worker'))
       }
-      name = name || [subdomain, domainName].join('.')
-
+      name = typeof name === 'string' ? name : [subdomain, domain].join('.')
       await this._sendMessage({
         action: 'start',
         name,
-        domain: domainName,
+        domain,
         subdomain,
         loginToken
       })
@@ -35,8 +34,7 @@ export class CommandExec {
     })
   }
   public async stop(name: string) {
-    let exitCode = 0
-    try {
+    return this._run(async () => {
       if (!name) {
         return console.log('Name is required.')
       }
@@ -45,17 +43,12 @@ export class CommandExec {
         name
       })
       console.log('DDNS client stopped.')
-    } catch (err) {
-      exitCode = -1
-      console.error(err)
-    } finally {
-      process.exit(exitCode)
-    }
+    })
   }
   public async list() {
-    let exitCode = 0
-    try {
+    return this._run(async () => {
       const started = await this._ping()
+
       if (!started) {
         console.log('No ddns instance is running.')
       } else {
@@ -66,15 +59,10 @@ export class CommandExec {
         domainList.forEach((item) => {
           table.push(item)
         })
+
         console.log(table.toString())
       }
-    } catch (err) {
-      console.error(err)
-      exitCode = -1
-      console.log('No ddns instance is running.')
-    } finally {
-      process.exit(exitCode)
-    }
+    })
   }
   private async _ping(timeout: number = 1000): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
@@ -104,14 +92,10 @@ export class CommandExec {
     })
   }
   private async _run(command: () => Promise<void>) {
-    let exitCode = 0
     try {
       await command()
     } catch (err) {
       console.error(err)
-      exitCode = -1
-    } finally {
-      process.exit(exitCode)
     }
   }
 }

@@ -2,7 +2,7 @@ import mkdir from 'make-dir'
 import os from 'os'
 import path from 'path'
 import winston from 'winston'
-const appDir = path.resolve(os.homedir(), '.dnspod-ddns')
+const appDir = path.resolve(os.homedir(), '.ddnsman')
 const filePath = path.resolve(appDir, 'output.log')
 
 mkdir.sync(appDir)

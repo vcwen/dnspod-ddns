@@ -1,6 +1,6 @@
 import Debug from 'debug'
 import { EventEmitter } from 'events'
-import { DnsPodClient } from './DnsPodClient'
+import { Util } from './util';
 const debug = Debug('IpMonitor')
 
 export class IpMonitor extends EventEmitter {
@@ -11,7 +11,7 @@ export class IpMonitor extends EventEmitter {
       return this.ip
     } else {
       try {
-        const ip = await DnsPodClient.getPublicIP()
+        const ip = await Util.getPublicIP()
         this.ip = ip
         return ip
       } catch (err) {
@@ -22,7 +22,7 @@ export class IpMonitor extends EventEmitter {
   }
   public async checkIp() {
     try {
-      const ip = await DnsPodClient.getPublicIP()
+      const ip = await Util.getPublicIP()
       if (this.ip !== ip) {
         this.ip = ip
         this.emit('change', ip)

@@ -1,6 +1,6 @@
 {
   "name": "ddnsman",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "DDNS Management",
   "main": "index.js",
   "bin": {

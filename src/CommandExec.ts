@@ -31,37 +31,31 @@ export class CommandExec {
         loginToken
       })
       console.log(`DDNS worker for ${name} started.`)
-    })
+    }, false)
   }
   public async stop(name: string) {
     return this._run(async () => {
       if (!name) {
-        return console.log('Name is required.')
+        return console.error('Name is required.')
       }
+
       await this._sendMessage({
         action: 'stop',
         name
       })
-      console.log('DDNS client stopped.')
+      console.log(`DDNS ${name} client stopped.`)
     })
   }
   public async list() {
     return this._run(async () => {
-      const started = await this._ping()
-
-      if (!started) {
-        console.log('No ddns instance is running.')
-      } else {
-        const domainList = await this._sendMessage({ action: 'list' })
-        const table = new Table({
-          head: ['Name', 'Status', 'Subdomain', 'Domain', 'IP']
-        })
-        domainList.forEach((item) => {
-          table.push(item)
-        })
-
-        console.log(table.toString())
-      }
+      const domainList = await this._sendMessage({ action: 'list' })
+      const table = new Table({
+        head: ['Name', 'Status', 'Subdomain', 'Domain', 'IP']
+      })
+      domainList.forEach((item) => {
+        table.push(item)
+      })
+      console.log(table.toString())
     })
   }
   private async _ping(timeout: number = 1000): Promise<boolean> {
@@ -91,11 +85,17 @@ export class CommandExec {
       })
     })
   }
-  private async _run(command: () => Promise<void>) {
+  private async _run(command: () => Promise<void>, requireWorkerStarted: boolean = true) {
     try {
-      await command()
+      if (requireWorkerStarted && !(await this._ping())) {
+        console.log('No ddns instance is running.')
+      } else {
+        await command()
+      }
     } catch (err) {
-      console.error(err)
+      console.error(err instanceof Error ? err.message : err)
+    } finally {
+      process.exit()
     }
   }
 }

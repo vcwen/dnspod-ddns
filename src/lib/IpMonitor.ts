@@ -1,6 +1,6 @@
 import Debug from 'debug'
 import { EventEmitter } from 'events'
-import { Util } from './util';
+import { Util } from './util'
 const debug = Debug('IpMonitor')
 
 export class IpMonitor extends EventEmitter {

@@ -18,7 +18,7 @@ export class DnsPodClient extends DnsClient {
     this.loginToken = loginToken
   }
   public get ip() {
-    return this.record ? this.record.value: undefined
+    return this.record ? this.record.value : undefined
   }
   public async getRecord() {
     debug('getRecord:' + this.domain)
@@ -31,13 +31,13 @@ export class DnsPodClient extends DnsClient {
         return record as IRecord
       }
     } catch (err) {
-      if(err.code === '10') {
+      if (err.code === '10') {
+        // code 10 means the record doesn't exist.
         return
       } else {
         throw err
       }
     }
-
   }
   public async createRecord(ip: string) {
     const opt = {
@@ -64,7 +64,7 @@ export class DnsPodClient extends DnsClient {
     this.status = 'sync'
     return res.record as IRecord
   }
-  public async sync( ip: string) {
+  public async sync(ip: string) {
     const subdomain = this.subdomain
     const domain = this.domain
     debug('sync %s with %s', [subdomain, domain].join('.'), ip)

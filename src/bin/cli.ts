@@ -4,8 +4,18 @@ import program from 'commander'
 import Debug from 'debug'
 import { CommandExec } from '../CommandExec'
 program.version('0.0.5')
-const debug = Debug('cli')
-const exec = new CommandExec()
+const debug = Debug('ddnsman')
+
+const run = (command: Promise<void>) => {
+  command
+    .catch((err) => {
+      // tslint:disable-next-line:no-console
+      console.error(err.message)
+    })
+    .finally(() => {
+      process.exit()
+    })
+}
 
 program
   .command('start')
@@ -18,7 +28,8 @@ program
   .option('-c --conf <filepath>', 'Config file(json format)')
   .action((options) => {
     debug('start with %o', options)
-    exec.start(options.subdomain, options.domainName, options.loginToken, options.name)
+    const exec = new CommandExec()
+    run(exec.start(options.subdomain, options.domainName, options.loginToken, options.name))
   })
 
 program
@@ -26,7 +37,8 @@ program
   .description('Stop DDNS with id')
   .action((name) => {
     debug('stop ' + name)
-    exec.stop(name)
+    const exec = new CommandExec()
+    run(exec.stop(name))
   })
 
 program
@@ -34,6 +46,8 @@ program
   .description('status of ddns')
   .action(() => {
     debug('list')
-    exec.list()
+    const exec = new CommandExec()
+    run(exec.list())
   })
+
 program.parse(process.argv)

@@ -1,14 +1,12 @@
-import axios from 'axios'
 import Debug from 'debug'
-
+import { request } from 'https'
 import qs from 'querystring'
 import { ApiUrl } from '../constants'
 import { DnsClient, IRecord } from './DnsClient'
+
 const debug = Debug('ddnsman:DnsPodClient')
-const validateResponse = (res) => {
-  if (res.status.code !== '1') {
-    throw Object.assign(new Error(), res.status)
-  }
+const isResponseValid = (res) => {
+  return res.status.code === '1'
 }
 export class DnsPodClient extends DnsClient {
   private loginToken: string
@@ -84,21 +82,44 @@ export class DnsPodClient extends DnsClient {
 
     return this.record
   }
-  private async _request(uri: string, options: any) {
-    const data = qs.stringify(Object.assign({ login_token: this.loginToken, format: 'json' }, options))
-    try {
-      const res = await axios.post(uri, data, {
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'DDNS Client/1.0.0 (wenwei1202@gmail.com)'
+  private async _request(path: string, options: any) {
+    return new Promise<any>((resolve, reject) => {
+      const body = qs.stringify(Object.assign({ login_token: this.loginToken, format: 'json' }, options))
+      const req = request(
+        {
+          method: 'POST',
+          host: 'dnsapi.cn',
+          path,
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'ddnsman/1.0.0 (wenwei1202@gmail.com)',
+            Accept: 'application/json'
+          }
+        },
+        (res) => {
+          const data: Buffer[] = []
+          res
+            .on('data', (chunk) => {
+              data.push(chunk)
+            })
+            .on('end', () => {
+              const result = JSON.parse(Buffer.concat(data).toString())
+              if (isResponseValid(result)) {
+                resolve(result)
+              } else {
+                reject(result)
+              }
+            })
+            .on('error', (err) => {
+              reject(err)
+            })
         }
+      )
+      req.on('error', (err) => {
+        reject(err)
       })
-
-      validateResponse(res.data)
-      return res.data
-    } catch (err) {
-      debug('Request %s failed with data:[%s], reason: %o', uri, data, err)
-      throw err
-    }
+      req.write(body)
+      req.end()
+    })
   }
 }

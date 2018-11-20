@@ -1,27 +1,40 @@
 /* tslint:disable no-console */
-import axon from 'axon'
+import { rejects } from 'assert'
 import { fork } from 'child_process'
 import Table from 'cli-table'
+import { EventEmitter } from 'events'
+import { IPC } from 'node-ipc'
 import path from 'path'
-import { SOCKET_PORT } from './constants'
-export class CommandExec {
-  private sock: any
+
+export class CommandExec extends EventEmitter {
+  private _ipc: any
+  private _pingIpc: any
+  private _isWorkerConnected: boolean = false
   constructor() {
-    this.sock = axon.socket('req', {})
-    this.sock.connect(SOCKET_PORT)
+    super()
+    const ipc = new IPC()
+    ipc.config.appspace = 'ddns.'
+    ipc.config.id = 'client'
+    this._ipc = ipc
+
+    const pingIpc = new IPC()
+    pingIpc.config.appspace = 'ddns.'
+    pingIpc.config.id = 'pingClient'
+    pingIpc.config.stopRetrying = true
+    this._pingIpc = pingIpc
   }
   public async start(subdomain: string, domain: string, loginToken: string, name?: string) {
+    if (!loginToken) {
+      throw new Error('Loin Token is required.')
+    }
+    if (!domain || !subdomain) {
+      throw new Error('Domain and sub domain are required.')
+    }
+    const started = await this._ping()
+    if (!started) {
+      fork(path.resolve(__dirname, './worker'))
+    }
     return this._run(async () => {
-      if (!loginToken) {
-        return console.error('Loin Token is required.')
-      }
-      if (!domain || !subdomain) {
-        return console.error('Domain and sub domain are required.')
-      }
-      const started = await this._ping()
-      if (!started) {
-        fork(path.resolve(__dirname, './worker'))
-      }
       name = typeof name === 'string' ? name : [subdomain, domain].join('.')
       await this._sendMessage({
         action: 'start',
@@ -31,14 +44,13 @@ export class CommandExec {
         loginToken
       })
       console.log(`DDNS worker for ${name} started.`)
-    }, false)
+    })
   }
   public async stop(name: string) {
+    if (!name) {
+      throw new Error('Name is required.')
+    }
     return this._run(async () => {
-      if (!name) {
-        return console.error('Name is required.')
-      }
-
       await this._sendMessage({
         action: 'stop',
         name
@@ -58,44 +70,49 @@ export class CommandExec {
       console.log(table.toString())
     })
   }
-  private async _ping(timeout: number = 1000): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      this.sock.send({ action: 'PING' }, () => {
-        resolve(true)
+  private async _ping(): Promise<boolean> {
+    if (this._isWorkerConnected) {
+      return true
+    } else {
+      return new Promise<boolean>((resolve) => {
+        const ipc = this._pingIpc
+        ipc.connectTo('worker', () => {
+          ipc.of.worker.on('connect', () => {
+            resolve(true)
+            ipc.disconnect('worker')
+          })
+          ipc.of.worker.on('error', () => {
+            resolve(false)
+          })
+        })
       })
-      setTimeout(() => {
-        resolve(false)
-      }, timeout)
-    })
+    }
   }
   private async _sendMessage(msg: any): Promise<any> {
     return new Promise((resolve, reject) => {
-      this.sock.send(msg, (err, ...res: any[]) => {
-        if (err) {
+      this._ipc.of.worker.emit('message', msg)
+      this._ipc.of.worker
+        .on('message', (data) => {
+          resolve(data)
+        })
+        .on('error', (err) => {
           reject(err)
-        } else {
-          if (res.length === 0) {
-            resolve()
-          } else if (res.length === 1) {
-            resolve(res[0])
-          } else {
-            resolve(res)
-          }
-        }
-      })
+        })
     })
   }
-  private async _run(command: () => Promise<void>, requireWorkerStarted: boolean = true) {
-    try {
-      if (requireWorkerStarted && !(await this._ping())) {
-        console.log('No ddns instance is running.')
-      } else {
-        await command()
-      }
-    } catch (err) {
-      console.error(err instanceof Error ? err.message : err)
-    } finally {
-      process.exit()
-    }
+  private async _run(command: (...args: any[]) => Promise<void>) {
+    return new Promise<void>((resolve, reject) => {
+      this._ipc.connectTo('worker', () => {
+        this._ipc.of.worker.on('connect', () => {
+          command()
+            .then(() => {
+              resolve()
+            })
+            .catch((err) => {
+              reject(err)
+            })
+        })
+      })
+    })
   }
 }

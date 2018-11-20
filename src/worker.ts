@@ -1,10 +1,11 @@
 /* tslint:disable no-console */
-import axon from 'axon'
-import { SOCKET_PORT } from './constants'
+import { IPC } from 'node-ipc'
 import { DnsClient } from './lib/DnsClient'
 import { DnsPodClient } from './lib/DnsPodClient'
 import { IpMonitor } from './lib/IpMonitor'
-import { logger } from './lib/Logger'
+import { getLogger } from './lib/util'
+
+const logger = getLogger()
 process.on('uncaughtException', (err) => {
   logger.error(err.message)
 })
@@ -14,45 +15,44 @@ process.on('unhandledRejection', (err) => {
 })
 
 class Worker {
-  private sock: any
   private dnsClientStore: Map<string, DnsClient> = new Map()
   private ipMonitor: IpMonitor
   constructor() {
     this.ipMonitor = new IpMonitor()
-    this.sock = axon.socket('rep', {})
-    this.sock.on('message', async (msg, reply) => {
-      try {
-        const res = await this._onMessage(msg)
-        reply(null, res)
-      } catch (err) {
-        reply(err)
-      }
+    const ipc = new IPC()
+    ipc.config.appspace = 'ddns.'
+    ipc.config.id = 'worker'
+    ipc.serve(() => {
+      ipc.server.on('message', (data, socket) => {
+        try {
+          const res = this._onMessage(data)
+          ipc.server.emit(socket, 'message', res)
+        } catch (err) {
+          ipc.server.emit(socket, 'message', err.message)
+        }
+      })
     })
+    ipc.server.start()
     this.ipMonitor.on('change', (ip) => {
       this._sync(ip)
     })
   }
   public start() {
     this.ipMonitor.start(10000)
-    this.sock.bind(SOCKET_PORT)
   }
-  private async _onMessage(msg: any) {
+  private _onMessage(msg: any) {
     switch (msg.action) {
       case 'PING': {
-        return
+        return 'PONG'
       }
       case 'start': {
-        const client = new DnsPodClient(msg.name, msg.subdomain, msg.domain, msg.loginToken)
         if (this.dnsClientStore.has(msg.name)) {
-          console.error('exists.')
+          throw new Error(`${msg.name} already exists.`)
         } else {
+          const client = new DnsPodClient(msg.name, msg.subdomain, msg.domain, msg.loginToken)
           this.dnsClientStore.set(msg.name, client)
-          const ip = await this.ipMonitor.getIp()
-          if (ip) {
-            client.sync(ip)
-          }
         }
-        return
+        return 'SUCCESS'
       }
       case 'stop': {
         if (msg.name === 'all') {
@@ -64,7 +64,7 @@ class Worker {
             throw new Error(`${msg.name} doesn't exist.`)
           }
         }
-        return
+        return 'SUCCESS'
       }
       case 'list': {
         const domains = [] as any

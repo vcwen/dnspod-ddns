@@ -1,13 +1,17 @@
 /* tslint:disable no-console */
-import axon from 'axon'
 import { CommandExec } from '../src/CommandExec'
 jest.mock('child_process')
 import childProcess from 'child_process'
+let exit: any
 describe('CommandExec', () => {
   beforeAll(() => {
-    (process as any).exit = () => {
+    exit = process.exit
+    process.exit = (() => {
       // prevent exit after command run
-    }
+    }) as any
+  })
+  afterAll(() => {
+    process.exit = exit
   })
   describe('#constructor', () => {
     it('should be able to create new instance', async () => {
@@ -16,7 +20,7 @@ describe('CommandExec', () => {
     })
   })
 
-  describe('#start', () => {
+  describe.only('#start', () => {
     it('should start ', async () => {
       const exec: any = new CommandExec()
       exec._sendMessage = async (msg: any) => {
@@ -29,16 +33,16 @@ describe('CommandExec', () => {
         })
       }
       const cp = childProcess as any
-      const sendSpy = jest.spyOn(exec.sock, 'send')
-      sendSpy.mockImplementation(() => {
-        // do thing, let it time out
-      })
+      // const sendSpy = jest.spyOn(exec.sock, 'send')
+      // sendSpy.mockImplementation(() => {
+      //   // do thing, let it time out
+      // })
       cp.hookFork((path) => {
         expect(path).toMatch(/.+\/src\/worker/)
       })
-      return exec.start('sub', 'ok.com', 'logintoken', 'test')
+      await exec.start('sub', 'ok.com', 'logintoken', 'test')
     })
-    it('should show error if token is not present', () => {
+    it.only('should show error if token is not present', () => {
       const spy = jest.spyOn(console, 'error')
 
       const exec = new CommandExec()

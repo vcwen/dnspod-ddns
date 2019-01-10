@@ -1,7 +1,8 @@
 import Debug from 'debug'
 import { request } from 'https'
 import qs from 'querystring'
-import { ApiUrl } from '../constants'
+import { ClientStatus } from '../constants/ClientStatus'
+import { ApiUrl } from '../constants/dnspod'
 import { DnsClient, IRecord } from './DnsClient'
 
 const debug = Debug('ddnsman:DnsPodClient')
@@ -59,7 +60,7 @@ export class DnsPodClient extends DnsClient {
       record_line: recordLine
     }
     const res = await this._request(ApiUrl.record.ddns, opt)
-    this.status = 'sync'
+    this.status = ClientStatus.SYNCING
     return res.record as IRecord
   }
   public async sync(ip: string) {

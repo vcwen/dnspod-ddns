@@ -1,27 +1,8 @@
-import mkdir from 'make-dir'
+import debug from 'debug'
 import { connect, isIP } from 'net'
-import os from 'os'
-import path from 'path'
-import { createLogger, transports } from 'winston'
 
-const appDir = path.resolve(os.homedir(), '.ddnsman')
-const filePath = path.resolve(appDir, 'output.log')
-
-mkdir.sync(appDir)
-const logger = createLogger({
-  level: 'info',
-  transports: [
-    new transports.File({
-      filename: filePath,
-      maxsize: 1000,
-      maxFiles: 5
-    })
-  ]
-})
-
-export const getLogger = () => {
-  return logger
-}
+const info = debug('ddnsman:info')
+const error = debug('ddnsman:error')
 
 export const getPublicIP = async () => {
   return new Promise<string>((resolve, reject) => {
@@ -38,11 +19,16 @@ export const getPublicIP = async () => {
         if (isIP(ip)) {
           resolve(ip)
         } else {
-          reject(ip)
+          reject(new TypeError('Invalid IP address:' + ip))
         }
       })
       .on('error', (err) => {
         reject(err)
       })
   })
+}
+
+export const logger = {
+  info,
+  error
 }

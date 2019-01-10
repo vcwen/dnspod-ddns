@@ -1,27 +1,11 @@
 /* tslint:disable no-console */
-import { rejects } from 'assert'
-import { fork } from 'child_process'
 import Table from 'cli-table'
 import { EventEmitter } from 'events'
-import { IPC } from 'node-ipc'
-import path from 'path'
+import { sendMessage } from './lib/ipc'
 
 export class CommandExec extends EventEmitter {
-  private _ipc: any
-  private _pingIpc: any
-  private _isWorkerConnected: boolean = false
   constructor() {
     super()
-    const ipc = new IPC()
-    ipc.config.appspace = 'ddns.'
-    ipc.config.id = 'client'
-    this._ipc = ipc
-
-    const pingIpc = new IPC()
-    pingIpc.config.appspace = 'ddns.'
-    pingIpc.config.id = 'pingClient'
-    pingIpc.config.stopRetrying = true
-    this._pingIpc = pingIpc
   }
   public async start(subdomain: string, domain: string, loginToken: string, name?: string) {
     if (!loginToken) {
@@ -30,13 +14,10 @@ export class CommandExec extends EventEmitter {
     if (!domain || !subdomain) {
       throw new Error('Domain and sub domain are required.')
     }
-    const started = await this._ping()
-    if (!started) {
-      fork(path.resolve(__dirname, './worker'))
-    }
-    return this._run(async () => {
+
+    this._runThenExit(async () => {
       name = typeof name === 'string' ? name : [subdomain, domain].join('.')
-      await this._sendMessage({
+      await sendMessage({
         action: 'start',
         name,
         domain,
@@ -50,8 +31,8 @@ export class CommandExec extends EventEmitter {
     if (!name) {
       throw new Error('Name is required.')
     }
-    return this._run(async () => {
-      await this._sendMessage({
+    return this._runThenExit(async () => {
+      await sendMessage({
         action: 'stop',
         name
       })
@@ -59,8 +40,8 @@ export class CommandExec extends EventEmitter {
     })
   }
   public async list() {
-    return this._run(async () => {
-      const domainList = await this._sendMessage({ action: 'list' })
+    this._runThenExit(async () => {
+      const domainList = await sendMessage({ action: 'list' })
       const table = new Table({
         head: ['Name', 'Status', 'Subdomain', 'Domain', 'IP']
       })
@@ -70,49 +51,15 @@ export class CommandExec extends EventEmitter {
       console.log(table.toString())
     })
   }
-  private async _ping(): Promise<boolean> {
-    if (this._isWorkerConnected) {
-      return true
-    } else {
-      return new Promise<boolean>((resolve) => {
-        const ipc = this._pingIpc
-        ipc.connectTo('worker', () => {
-          ipc.of.worker.on('connect', () => {
-            resolve(true)
-            ipc.disconnect('worker')
-          })
-          ipc.of.worker.on('error', () => {
-            resolve(false)
-          })
-        })
+
+  private async _runThenExit(command: (...args: any[]) => Promise<void>) {
+    command()
+      .catch((err) => {
+        console.error(err)
+        process.exit(-1)
       })
-    }
-  }
-  private async _sendMessage(msg: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      this._ipc.of.worker.emit('message', msg)
-      this._ipc.of.worker
-        .on('message', (data) => {
-          resolve(data)
-        })
-        .on('error', (err) => {
-          reject(err)
-        })
-    })
-  }
-  private async _run(command: (...args: any[]) => Promise<void>) {
-    return new Promise<void>((resolve, reject) => {
-      this._ipc.connectTo('worker', () => {
-        this._ipc.of.worker.on('connect', () => {
-          command()
-            .then(() => {
-              resolve()
-            })
-            .catch((err) => {
-              reject(err)
-            })
-        })
+      .finally(() => {
+        process.exit(0)
       })
-    })
   }
 }

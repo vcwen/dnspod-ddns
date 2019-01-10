@@ -1,22 +1,21 @@
 #!/usr/bin/env node
 
+import { fork } from 'child_process'
 import program from 'commander'
-import Debug from 'debug'
+import nodepath from 'path'
 import { CommandExec } from '../CommandExec'
-program.version('0.0.5')
-const debug = Debug('ddnsman')
+import { pingDaemon } from '../lib/ipc'
+import { logger } from '../lib/util'
 
-const run = (command: Promise<void>) => {
-  command
-    .catch((err) => {
-      // tslint:disable-next-line:no-console
-      console.error(err.message)
-    })
-    .finally(() => {
-      process.exit()
-    })
-}
+// tslint:disable-next-line:no-var-requires
+const pkg = require('../../package.json')
+program.version(pkg.version)
 
+pingDaemon().then((started) => {
+  if (!started) {
+    fork(nodepath.resolve(__dirname, '../lib/daemon'))
+  }
+})
 program
   .command('start')
   .description('start DDNS')
@@ -24,30 +23,28 @@ program
   .option('-d --domainName <domain>', 'Domain *required')
   .option('-s --subdomain <subdomain>', 'Sub domain *required')
   .option('-t --login-token <token>', 'Login token, format:<Id,Token> *required')
-  .option('--if --interface <interface>', 'Interface to get the public IP address')
-  .option('-c --conf <filepath>', 'Config file(json format)')
   .action((options) => {
-    debug('start with %o', options)
+    logger.info('start with %o', options)
     const exec = new CommandExec()
-    run(exec.start(options.subdomain, options.domainName, options.loginToken, options.name))
+    exec.start(options.subdomain, options.domainName, options.loginToken, options.name)
   })
 
 program
   .command('stop <name>|all')
   .description('Stop DDNS with id')
   .action((name) => {
-    debug('stop ' + name)
+    logger.info('stop ' + name)
     const exec = new CommandExec()
-    run(exec.stop(name))
+    exec.stop(name)
   })
 
 program
   .command('ls')
   .description('status of ddns')
   .action(() => {
-    debug('list')
+    logger.info('list')
     const exec = new CommandExec()
-    run(exec.list())
+    exec.list()
   })
 
 program.parse(process.argv)

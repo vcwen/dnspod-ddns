@@ -1,7 +1,5 @@
-import Debug from 'debug'
 import { EventEmitter } from 'events'
-import { getPublicIP } from './util'
-const debug = Debug('IpMonitor')
+import { getPublicIP, logger } from './util'
 
 export class IpMonitor extends EventEmitter {
   private timer: NodeJS.Timer
@@ -28,12 +26,13 @@ export class IpMonitor extends EventEmitter {
         this.emit('change', ip)
       }
     } catch (err) {
-      debug('Failed to get external IP: %o' + err)
+      logger.error('Failed to get external IP: %o' + err)
       // tslint:disable-next-line:no-console
       console.error(err)
     }
   }
-  public start(interval: number) {
+  // default interval 10s
+  public start(interval: number = 10000) {
     this.timer = setInterval(() => {
       this.checkIp()
     }, interval)

@@ -1,6 +1,6 @@
 import url from 'url'
 
-export const DNSPOD_API_URL = 'https://dnsapi.cn/'
+export const API_URL = 'https://dnsapi.cn/'
 export const ApiUrl = {
   domain: {
     info: url.resolve('/', 'domain.info')

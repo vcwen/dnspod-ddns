@@ -6,7 +6,7 @@ node {
      echo $(c.name)
   }
   docker.image('node:12').inside {
-    stage('test) {
+    stage('test') {
       sh 'node --version'
    }
   }

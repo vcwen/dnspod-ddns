@@ -9,7 +9,7 @@ pipeline {
     stage('test') {
       agent any
       steps {
-        sh 'make test'
+        sh 'node -version'
       }
     }
   }

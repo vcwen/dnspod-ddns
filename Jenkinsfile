@@ -5,7 +5,7 @@ node {
   docker.image('redis:5').withRun('--name redis') { c -> 
      echo $(c.name)
   }
-  docker.image('node:12).inside {
+  docker.image('node:12').inside {
     stage('test) {
       sh 'node --version'
    }

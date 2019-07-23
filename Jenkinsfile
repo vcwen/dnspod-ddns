@@ -7,9 +7,11 @@ pipeline {
   }
   stages {
     stage('test') {
-      steps {
+      script {
         docker.image('mongo:4').withRun('--name mongo')
         docker.image('redis:5').withRun('--name redis')
+      }
+      steps {
         sh 'node --version'
       }
     }

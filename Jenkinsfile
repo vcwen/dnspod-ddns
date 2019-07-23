@@ -7,7 +7,6 @@ pipeline {
   }
   stages {
     stage('test') {
-      agent any
       steps {
         sh 'node -version'
       }
